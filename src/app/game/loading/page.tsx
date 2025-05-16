@@ -1,4 +1,4 @@
-'use client'; 
+'use client';
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -13,7 +13,7 @@ const messages = [
 ];
 
 // Idealmente, este valor vendría de una constante compartida (ej. exportada de settings/page.tsx)
-const MIN_QUESTIONS_REQUIRED = 3; 
+const MIN_QUESTIONS_REQUIRED = 3;
 
 export default function LoadingGamePage() {
   const router = useRouter();
@@ -56,7 +56,7 @@ export default function LoadingGamePage() {
     }, 250); // Actualiza la barra cada 250ms
 
     // Duración total simulada de la carga ~5 segundos
-    const totalLoadTime = 5000; 
+    const totalLoadTime = 5000;
     const redirectTimer = setTimeout(() => {
       clearInterval(progressInterval);
       clearInterval(messageInterval);
@@ -86,18 +86,19 @@ export default function LoadingGamePage() {
             <div className="flex items-center">
               <span className="text-blue-400 mr-2">$</span>
               <div className="typing-animation">
-                Inicializando "100 Programadores Dijeron"...
+                {/* ESTA ES LA LÍNEA MODIFICADA */}
+                Inicializando &quot;100 Programadores Dijeron&quot;...
               </div>
             </div>
           </div>
 
           <div className="w-full bg-gray-700 rounded-full h-2.5 mb-6">
-            <div 
-              className="bg-green-500 h-2.5 rounded-full transition-all duration-300 ease-linear" 
+            <div
+              className="bg-green-500 h-2.5 rounded-full transition-all duration-300 ease-linear"
               style={{ width: `${progress}%` }}
             ></div>
           </div>
-          
+
           <div className="space-y-2 text-sm mb-6">
             <div className="flex">
               <span className="text-purple-400 mr-2">[SISTEMA]</span>
