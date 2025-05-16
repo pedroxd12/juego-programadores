@@ -14,7 +14,7 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
+    --background: #0a0a0a; /* Un fondo oscuro base */
     --foreground: #ededed;
   }
 }
@@ -22,5 +22,226 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif; /* Usando Geist Sans */
+  overflow-x: hidden; /* Prevenir scroll horizontal por animaciones */
+}
+
+/* Animación de entrada para elementos */
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+.animate-slide-in-bottom {
+  animation: slideInFromBottom 0.7s ease-out forwards;
+}
+
+.animate-slide-in-left {
+  animation: slideInFromLeft 0.6s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideInFromBottom {
+  from { transform: translateY(30px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes slideInFromLeft {
+  from { transform: translateX(-30px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+/* Animación de "máquina de escribir" para la página de carga y títulos */
+.typing-animation {
+  overflow: hidden;
+  border-right: 2px solid #4ade80; /* Color del cursor */
+  white-space: nowrap;
+  animation: typing 2s steps(30, end), blink-caret 0.75s step-end infinite;
+  display: inline-block; /* Asegura que el borde se ajuste al texto */
+}
+.typing-animation-delay {
+  overflow: hidden;
+  border-right: 2px solid #4ade80; /* Color del cursor */
+  white-space: nowrap;
+  animation: typing 2s steps(30, end) 2s forwards, blink-caret 0.75s step-end 2s infinite; /* Retraso de 2s */
+  opacity: 0; /* Inicia invisible hasta que la animación comience */
+  animation-fill-mode: forwards; /* Mantiene el estado final de la animación de opacidad */
+}
+
+
+@keyframes typing {
+  from { width: 0 }
+  to { width: 100% }
+}
+
+@keyframes blink-caret {
+  from, to { border-color: transparent }
+  50% { border-color: #4ade80 } /* Color del cursor que parpadea */
+}
+
+/* Efecto de terminal parpadeante (para la pantalla de carga) */
+.cursor-blink::after {
+  content: "_"; /* Cambiado de | a _ para un look más de terminal */
+  font-weight: bold;
+  animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+  from, to { opacity: 1 }
+  50% { opacity: 0 }
+}
+
+/* Animación de fondo sutil (Opcional - ejemplo) */
+.animated-background-gradient {
+  background: linear-gradient(120deg, #0f172a, #1e1b4b, #312e81); /* Ajusta colores a tu tema */
+  background-size: 200% 200%;
+  animation: gradientBG 15s ease infinite;
+}
+
+@keyframes gradientBG {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Estilo para el mensaje de OPORTUNIDAD de robo de puntos (persistente) */
+.steal-points-message {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: rgba(239, 68, 68, 0.95); /* Rojo con transparencia */
+  color: white;
+  padding: 20px 40px;
+  border-radius: 10px;
+  font-size: 1.5rem;
+  font-weight: bold;
+  z-index: 1000;
+  box-shadow: 0 0 15px rgba(0,0,0,0.5);
+  text-align: center;
+  animation: fadeIn 0.3s ease-out forwards; /* Solo fadeIn, sin fadeOut automático */
+}
+
+/* Estilo para el mensaje de RESULTADO de robo de puntos (transitorio) */
+.steal-outcome-fade-message {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: rgba(239, 68, 68, 0.95); /* Rojo con transparencia */
+  color: white;
+  padding: 20px 40px;
+  border-radius: 10px;
+  font-size: 1.5rem;
+  font-weight: bold;
+  z-index: 1000;
+  box-shadow: 0 0 15px rgba(0,0,0,0.5);
+  text-align: center;
+  animation: fadeIn 0.3s ease-out, fadeOut 0.3s ease-in 2.7s forwards; /* fadeIn y fadeOut */
+}
+
+/* Estilo para mensajes de información general de ronda (transitorio) */
+.round-info-message {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: rgba(59, 130, 246, 0.95); /* Azul para info general */
+  color: white;
+  padding: 20px 40px;
+  border-radius: 10px;
+  font-size: 1.5rem;
+  font-weight: bold;
+  z-index: 1000;
+  box-shadow: 0 0 15px rgba(0,0,0,0.5);
+  text-align: center;
+  animation: fadeIn 0.3s ease-out, fadeOut 0.3s ease-in 2.7s forwards; /* fadeIn y fadeOut */
+}
+
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; display: none; }
+}
+
+/* Animación para strikes */
+.strike-x {
+  animation: popIn 0.3s ease-out;
+}
+@keyframes popIn {
+  0% { transform: scale(0.5); opacity: 0; }
+  70% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
+/* Nueva animación para parpadeo de strikes */
+.animate-strike-blink {
+  animation: strikeBlink 0.8s infinite ease-in-out;
+}
+
+@keyframes strikeBlink {
+  0%, 100% { opacity: 1; transform: scale(1.05); box-shadow: 0 0 10px #fff, 0 0 20px #ff0000; }
+  50% { opacity: 0.7; transform: scale(1); box-shadow: 0 0 5px #fff, 0 0 10px #ff0000; }
+}
+
+
+/* Animación para cambio de puntaje */
+.score-update {
+  animation: scoreBump 0.4s ease-out;
+}
+@keyframes scoreBump {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.2) translateY(-5px); color: #facc15; } /* Amarillo para destacar */
+  100% { transform: scale(1); }
+}
+
+/* Estilos para la terminal en la pantalla de carga */
+.terminal-loader {
+  width: 100%;
+  max-width: 600px;
+  background-color: #1a202c; /* Un negro azulado */
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+  overflow: hidden;
+}
+.terminal-header {
+  background-color: #2d3748; /* Gris oscuro */
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.terminal-title {
+  color: #e2e8f0; /* Gris claro */
+  font-size: 0.9rem;
+}
+.terminal-controls {
+  display: flex;
+}
+.control {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-left: 6px;
+}
+.control.close { background-color: #fc5753; }
+.control.minimize { background-color: #fdbb2d; }
+.control.maximize { background-color: #34c749; }
+
+.terminal-content {
+  padding: 20px;
+  font-family: var(--font-mono), monospace; /* Usando Geist Mono */
+  color: #90cdf4; /* Azul claro para el texto */
+  min-height: 150px;
+}
+.terminal-content .typing-animation,
+.terminal-content .typing-animation-delay {
+  border-right-color: #90cdf4; /* Cursor del color del texto */
+}
+@keyframes blink-caret { /* Sobrescribir blink-caret para este contexto si es necesario */
+  from, to { border-color: transparent }
+  50% { border-color: #90cdf4 }
 }
