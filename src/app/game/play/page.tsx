@@ -205,30 +205,37 @@ export default function GamePage() {
     const currentTeamSetState = currentTeamId === 1 ? setTeam1 : setTeam2;
     
     if (gamePhase === GamePhase.QUESTION) {
-      // Cuando se acaba el tiempo, se asignan directamente 3 strikes (termina su turno)
+      // Cuando se acaba el tiempo, se asigna 1 strike
       currentTeamSetState(prev => {
+        const newStrikes = prev.strikes + 1;
         const otherTeamId = currentTeamId === 1 ? 2 : 1;
         const otherTeam = currentTeamId === 1 ? team2 : team1;
         
-        // Cambiar equipo y fase primero
-        setCurrentTeamId(otherTeamId);
-        setGamePhase(GamePhase.STEAL_ATTEMPT);
+        if (newStrikes >= MAX_STRIKES) {
+          // Si ahora tiene 3 strikes, dar oportunidad de robo
+          setCurrentTeamId(otherTeamId);
+          setGamePhase(GamePhase.STEAL_ATTEMPT);
+          
+          // Mostrar mensaje Y activar timer inmediatamente
+          setRoundMessage(`¡Se acabó el tiempo! ${MAX_STRIKES} strikes para ${currentProcessingTeam.name}. Oportunidad de ROBO para ${otherTeam.name} por ${pointsAccumulatedThisRound} puntos.`);
+          setMessageTypeForCss('steal-opportunity');
+          
+          // Activar timer INMEDIATAMENTE para el robo
+          setIsTimerActive(true);
+          setTimerKey(prev => prev + 1);
+          
+          // Solo ocultar el mensaje después, pero el timer ya está corriendo
+          setTimeout(() => {
+            setRoundMessage(null);
+            setMessageTypeForCss(null);
+          }, ROUND_MESSAGE_DURATION);
+        } else {
+          // Aún no tiene 3 strikes, reiniciar el timer para que continúe
+          setIsTimerActive(true);
+          setTimerKey(prev => prev + 1);
+        }
         
-        // Mostrar mensaje Y activar timer inmediatamente
-        setRoundMessage(`¡Se acabó el tiempo! ${MAX_STRIKES} strikes para ${currentProcessingTeam.name}. Oportunidad de ROBO para ${otherTeam.name} por ${pointsAccumulatedThisRound} puntos.`);
-        setMessageTypeForCss('steal-opportunity');
-        
-        // Activar timer INMEDIATAMENTE para el robo
-        setIsTimerActive(true);
-        setTimerKey(prev => prev + 1);
-        
-        // Solo ocultar el mensaje después, pero el timer ya está corriendo
-        setTimeout(() => {
-          setRoundMessage(null);
-          setMessageTypeForCss(null);
-        }, ROUND_MESSAGE_DURATION);
-        
-        return { ...prev, strikes: MAX_STRIKES }; // Asignar directamente 3 strikes
+        return { ...prev, strikes: newStrikes };
       });
     } else if (gamePhase === GamePhase.STEAL_ATTEMPT) {
       // Si se acaba el tiempo en el robo, el equipo original gana los puntos
