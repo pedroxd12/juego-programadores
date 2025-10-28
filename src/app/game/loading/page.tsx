@@ -24,6 +24,8 @@ export default function LoadingGamePage() {
     const team1Name = localStorage.getItem('team1Name');
     const team2Name = localStorage.getItem('team2Name');
     const gameQuestions = localStorage.getItem('gameQuestions');
+    const turnTime = localStorage.getItem('turnTimeSeconds');
+    const stealTime = localStorage.getItem('stealTimeSeconds');
 
     if (!team1Name || !team2Name ) {
       alert("No se encontraron los nombres de los equipos. Por favor, configúralos primero.");
@@ -34,6 +36,14 @@ export default function LoadingGamePage() {
         alert(`No hay suficientes preguntas configuradas (se necesitan al menos ${MIN_QUESTIONS_REQUIRED}). Por favor, ve a configuración.`);
         router.push('/game/settings');
         return;
+    }
+    
+    // Validar o establecer tiempo por defecto
+    if (!turnTime) {
+      localStorage.setItem('turnTimeSeconds', '30'); // 30 segundos por defecto
+    }
+    if (!stealTime) {
+      localStorage.setItem('stealTimeSeconds', '15'); // 15 segundos por defecto para robo
     }
 
 

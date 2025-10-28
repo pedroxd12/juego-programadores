@@ -1,5 +1,6 @@
 import React from 'react';
 import { Question } from '@/app/game/settings/page'; // Importar el tipo Question
+import { FormattedText } from './CodeBlock';
 
 type QuestionDisplayProps = {
   question: Question;
@@ -10,8 +11,8 @@ type QuestionDisplayProps = {
 export const QuestionDisplay: React.FC<QuestionDisplayProps> = ({ question, revealedAnswers, isCorrectlyAnswered }) => {
   return (
     <div className="bg-gray-800 bg-opacity-80 rounded-xl p-6 md:p-8 shadow-2xl backdrop-blur-sm animate-fade-in">
-      <h2 className="text-2xl md:text-3xl font-bold mb-8 text-center text-sky-300 animate-slide-in-bottom" style={{ animationDelay: '0.1s' }}>
-        {question.text}
+      <h2 className="text-2xl md:text-3xl font-bold mb-8 text-center text-sky-300 animate-slide-in-bottom whitespace-pre-wrap" style={{ animationDelay: '0.1s' }}>
+        <FormattedText text={question.text} />
       </h2>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -27,9 +28,11 @@ export const QuestionDisplay: React.FC<QuestionDisplayProps> = ({ question, reve
               style={{ animationDelay: `${0.2 + idx * 0.05}s` }}
             >
               {isRevealed ? (
-                <div className="flex justify-between items-center">
-                  <span className="text-lg text-gray-100">{answer.text}</span>
-                  <span className={`font-bold px-3 py-1 rounded text-sm ${wasGuessed ? 'bg-yellow-500 text-yellow-900' : 'bg-green-400 text-green-900'}`}>
+                <div className="flex justify-between items-center gap-2">
+                  <div className="flex-grow text-lg text-gray-100 whitespace-pre-wrap">
+                    <FormattedText text={answer.text} />
+                  </div>
+                  <span className={`font-bold px-3 py-1 rounded text-sm flex-shrink-0 ${wasGuessed ? 'bg-yellow-500 text-yellow-900' : 'bg-green-400 text-green-900'}`}>
                     {answer.points} pts
                   </span>
                 </div>

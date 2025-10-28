@@ -161,6 +161,11 @@ body {
   animation: fadeIn 0.3s ease-out, fadeOut 0.3s ease-in 2.7s forwards; /* fadeIn y fadeOut */
 }
 
+/* Estilo para mensaje de FACE-OFF (transitorio con color púrpura) */
+.round-info-message.bg-purple-600 {
+  background-color: rgba(147, 51, 234, 0.95); /* Púrpura para Face-Off */
+}
+
 
 @keyframes fadeOut {
   from { opacity: 1; }

@@ -22,13 +22,24 @@ export default function SettingsPage() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [newQuestionText, setNewQuestionText] = useState('');
   const [newAnswers, setNewAnswers] = useState<string[]>(Array(POINTS_DISTRIBUTION.length).fill(''));
+  const [turnTime, setTurnTime] = useState(30);
+  const [stealTime, setStealTime] = useState(15);
   const router = useRouter();
 
-  // Cargar preguntas desde localStorage al montar el componente
+  // Cargar preguntas y configuración de tiempo desde localStorage al montar el componente
   useEffect(() => {
     const storedQuestions = localStorage.getItem('gameQuestions');
     if (storedQuestions) {
       setQuestions(JSON.parse(storedQuestions));
+    }
+    
+    const savedTurnTime = localStorage.getItem('turnTimeSeconds');
+    const savedStealTime = localStorage.getItem('stealTimeSeconds');
+    if (savedTurnTime) {
+      setTurnTime(parseInt(savedTurnTime));
+    }
+    if (savedStealTime) {
+      setStealTime(parseInt(savedStealTime));
     }
   }, []);
 
@@ -105,9 +116,10 @@ export default function SettingsPage() {
                 id="questionText"
                 value={newQuestionText}
                 onChange={(e) => setNewQuestionText(e.target.value)}
-                className="w-full px-4 py-3 rounded bg-gray-700 border border-gray-600 focus:border-teal-400 focus:outline-none"
-                rows={3}
-                placeholder="Escribe la pregunta aquí..."
+                className="w-full px-4 py-3 rounded bg-gray-700 border border-gray-600 focus:border-teal-400 focus:outline-none font-mono whitespace-pre-wrap"
+                rows={5}
+                placeholder="Escribe la pregunta aquí"
+                style={{ resize: 'vertical' }}
               />
             </div>
             
@@ -120,11 +132,14 @@ export default function SettingsPage() {
                     type="text"
                     value={answerText}
                     onChange={(e) => handleAnswerChange(idx, e.target.value)}
-                    className="flex-grow px-3 py-2 rounded bg-gray-700 border border-gray-600 focus:border-teal-400 focus:outline-none ml-2"
-                    placeholder={`Respuesta ${idx + 1}`}
+                    className="flex-grow px-3 py-2 rounded bg-gray-700 border border-gray-600 focus:border-teal-400 focus:outline-none ml-2 font-mono"
+                    placeholder={`Respuesta ${idx + 1} (acepta variaciones)`}
                   />
                 </div>
               ))}
+              <p className="text-xs text-gray-400 mt-1">
+                ✨ Las respuestas aceptan variaciones (acentos, mayúsculas, espacios)
+              </p>
             </div>
             
             <button
@@ -145,11 +160,11 @@ export default function SettingsPage() {
             <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
               {questions.map((question) => (
                 <div key={question.id} className="bg-gray-700 p-4 rounded-lg shadow-md animate-fade-in">
-                  <h3 className="font-bold text-lg mb-2 text-gray-100">{question.text}</h3>
+                  <h3 className="font-bold text-lg mb-2 text-gray-100 whitespace-pre-wrap font-mono">{question.text}</h3>
                   <ul className="list-disc list-inside pl-4 space-y-1">
                     {question.answers.map((answer, idx) => (
                       <li key={idx} className="text-sm">
-                        <span className="text-yellow-400">{answer.points} pts:</span> {answer.text}
+                        <span className="text-yellow-400">{answer.points} pts:</span> <span className="whitespace-pre-wrap">{answer.text}</span>
                       </li>
                     ))}
                   </ul>
@@ -168,6 +183,66 @@ export default function SettingsPage() {
               Necesitas al menos {MIN_QUESTIONS_TO_PLAY} preguntas para iniciar una ronda. ¡Sigue agregando!
             </p>
           )}
+          
+          {/* Configuración de tiempos */}
+          {canStartGame && (
+            <div className="mt-6 p-4 bg-gray-900 rounded-lg border border-gray-600">
+              <h3 className="text-xl font-semibold mb-4 text-purple-300">⚙️ Configuración de Tiempos</h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="turnTime" className="block text-sm mb-2 text-gray-200">
+                    Tiempo por turno: <span className="text-yellow-400 font-bold">{turnTime} segundos</span>
+                  </label>
+                  <input
+                    id="turnTime"
+                    type="range"
+                    min="10"
+                    max="120"
+                    step="5"
+                    value={turnTime}
+                    onChange={(e) => {
+                      const newValue = parseInt(e.target.value);
+                      setTurnTime(newValue);
+                      localStorage.setItem('turnTimeSeconds', newValue.toString());
+                    }}
+                    className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-yellow-500"
+                  />
+                  <div className="flex justify-between text-xs text-gray-400 mt-1">
+                    <span>10s</span>
+                    <span>60s</span>
+                    <span>120s</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="stealTime" className="block text-sm mb-2 text-gray-200">
+                    Tiempo para robo: <span className="text-red-400 font-bold">{stealTime} segundos</span>
+                  </label>
+                  <input
+                    id="stealTime"
+                    type="range"
+                    min="5"
+                    max="60"
+                    step="5"
+                    value={stealTime}
+                    onChange={(e) => {
+                      const newValue = parseInt(e.target.value);
+                      setStealTime(newValue);
+                      localStorage.setItem('stealTimeSeconds', newValue.toString());
+                    }}
+                    className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-red-500"
+                  />
+                  <div className="flex justify-between text-xs text-gray-400 mt-1">
+                    <span>5s</span>
+                    <span>30s</span>
+                    <span>60s</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          
           {canStartGame && (
             <button
                 onClick={() => router.push('/game/loading')}

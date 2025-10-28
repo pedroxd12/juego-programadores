@@ -4,7 +4,9 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { QuestionDisplay } from '@/components/QuestionDisplay';
 import { TeamScore } from '@/components/TeamScore';
+import { Timer } from '@/components/Timer';
 import { Question as QuestionType } from '@/app/game/settings/page';
+import { isAnswerValid } from '@/utils/textUtils';
 
 type Team = {
   name: string;
@@ -14,15 +16,15 @@ type Team = {
 
 const GamePhase = {
   INITIAL_LOADING : 'INITIAL_LOADING',
-  CHOOSING_STARTING_TEAM: 'CHOOSING_STARTING_TEAM',
   ROUND_LOADING : 'ROUND_LOADING',
+  FACE_OFF : 'FACE_OFF', // Nueva fase: ambos equipos compiten por responder primero
   QUESTION : 'QUESTION',
   REVEAL : 'REVEAL',
   STEAL_ATTEMPT : 'STEAL_ATTEMPT',
   GAME_OVER : 'GAME_OVER',
 }
 
-type MessageType = 'steal-opportunity' | 'steal-outcome' | 'info' | null;
+type MessageType = 'steal-opportunity' | 'steal-outcome' | 'info' | 'face-off' | null;
 
 const MAX_STRIKES = 3;
 const QUESTIONS_PER_GAME_SESSION = 3; 
@@ -38,6 +40,8 @@ export default function GamePage() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [currentQuestion, setCurrentQuestion] = useState<QuestionType | null>(null);
   const [userAnswer, setUserAnswer] = useState('');
+  const [team1FaceOffAnswer, setTeam1FaceOffAnswer] = useState(''); // Respuesta separada para equipo 1 en Face-Off
+  const [team2FaceOffAnswer, setTeam2FaceOffAnswer] = useState(''); // Respuesta separada para equipo 2 en Face-Off
   const [revealedAnswers, setRevealedAnswers] = useState<string[]>([]);
   const [pointsAccumulatedThisRound, setPointsAccumulatedThisRound] = useState(0);
   
@@ -46,13 +50,28 @@ export default function GamePage() {
   const [gamePhase, setGamePhase] = useState(GamePhase.INITIAL_LOADING);
   const [roundMessage, setRoundMessage] = useState<string | null>(null);
   const [messageTypeForCss, setMessageTypeForCss] = useState<MessageType>(null);
+  
+  // Estados para el temporizador
+  const [turnTimeSeconds, setTurnTimeSeconds] = useState(30);
+  const [stealTimeSeconds, setStealTimeSeconds] = useState(15);
+  const [isTimerActive, setIsTimerActive] = useState(false);
+  const [timerKey, setTimerKey] = useState(0); // Para forzar reset del timer
 
   useEffect(() => {
     if (gamePhase === GamePhase.INITIAL_LOADING) {
       const team1Name = localStorage.getItem('team1Name') || 'Equipo Alpha';
       const team2Name = localStorage.getItem('team2Name') || 'Equipo Beta';
+      const savedTurnTime = localStorage.getItem('turnTimeSeconds');
+      const savedStealTime = localStorage.getItem('stealTimeSeconds');
+      
       setTeam1(prev => ({ ...prev, name: team1Name, score: 0, strikes: 0 }));
       setTeam2(prev => ({ ...prev, name: team2Name, score: 0, strikes: 0 }));
+      
+      const turnTime = savedTurnTime ? parseInt(savedTurnTime) : 30;
+      const stealTime = savedStealTime ? parseInt(savedStealTime) : 15;
+      
+      setTurnTimeSeconds(turnTime);
+      setStealTimeSeconds(stealTime);
 
       const storedQuestionsRaw = localStorage.getItem('gameQuestions');
       if (!storedQuestionsRaw) {
@@ -75,30 +94,9 @@ export default function GamePage() {
       setCurrentQuestionIndex(0);
       setRoundWinnerTeamId(null); 
       setCurrentTeamId(null); 
-      setGamePhase(GamePhase.CHOOSING_STARTING_TEAM);
+      setGamePhase(GamePhase.ROUND_LOADING); // Ir directo a ROUND_LOADING
     }
   }, [gamePhase, router]);
-
-  useEffect(() => {
-    if (gamePhase === GamePhase.CHOOSING_STARTING_TEAM && questionsForCurrentSession.length > 0 && team1.name && team2.name) {
-      const initialStartingTeam = Math.random() < 0.5 ? 1 : 2;
-      setCurrentTeamId(initialStartingTeam);
-      
-      if (currentQuestionIndex === 0) {
-        setRoundWinnerTeamId(initialStartingTeam); 
-      }
-      
-      const startingTeamName = initialStartingTeam === 1 ? team1.name : team2.name;
-      setRoundMessage(`Eligiendo equipo al azar... ¡Comienza ${startingTeamName}!`);
-      setMessageTypeForCss('info');
-      setTimeout(() => {
-        setRoundMessage(null);
-        setMessageTypeForCss(null);
-        setGamePhase(GamePhase.ROUND_LOADING);
-      }, ROUND_MESSAGE_DURATION);
-    }
-  }, [gamePhase, questionsForCurrentSession.length, team1.name, team2.name, currentQuestionIndex]);
-
 
   useEffect(() => {
     if (gamePhase === GamePhase.ROUND_LOADING && questionsForCurrentSession.length > 0) {
@@ -110,37 +108,162 @@ export default function GamePage() {
         setTeam1(prev => ({ ...prev, strikes: 0 }));
         setTeam2(prev => ({ ...prev, strikes: 0 }));
         setUserAnswer('');
+        setIsTimerActive(false); // Desactivar timer durante carga
+        setCurrentTeamId(null); // Resetear equipo actual para el Face-Off
 
-        const teamToStart = roundWinnerTeamId || currentTeamId;
-        setCurrentTeamId(teamToStart); 
-
-        const startingTeamName = teamToStart === 1 ? team1.name : team2.name;
-        setRoundMessage(`Ronda ${currentQuestionIndex + 1}. ¡Turno para ${startingTeamName}!`);
-        setMessageTypeForCss('info');
+        setRoundMessage(`Ronda ${currentQuestionIndex + 1} - ¡FACE-OFF! El primero en responder correctamente gana el control.`);
+        setMessageTypeForCss('face-off');
         setTimeout(() => {
           setRoundMessage(null);
           setMessageTypeForCss(null);
-          setGamePhase(GamePhase.QUESTION);
+          setGamePhase(GamePhase.FACE_OFF); // Cambiar a Face-Off
+          setIsTimerActive(false); // Sin timer en Face-Off
         }, ROUND_MESSAGE_DURATION);
 
       } else {
         setGamePhase(GamePhase.GAME_OVER);
       }
     }
-  }, [gamePhase, currentQuestionIndex, questionsForCurrentSession, team1.name, team2.name, roundWinnerTeamId, currentTeamId]);
+  }, [gamePhase, currentQuestionIndex, questionsForCurrentSession]);
 
 
   const handleExitGame = () => {
     router.push('/');
   };
 
+  const handleFaceOffSubmit = (e: React.FormEvent, teamId: number) => {
+    e.preventDefault();
+    
+    // Obtener la respuesta del equipo correcto
+    const teamAnswer = teamId === 1 ? team1FaceOffAnswer : team2FaceOffAnswer;
+    
+    if (!currentQuestion || !teamAnswer.trim() || gamePhase !== GamePhase.FACE_OFF) return;
+
+    const submittedAnswerText = teamAnswer.trim();
+    // Verificar si la respuesta es correcta usando validación flexible
+    const correctAnswer = currentQuestion.answers.find(
+      ans => isAnswerValid(submittedAnswerText, ans.text, 0.75)
+    );
+
+    if (correctAnswer) {
+      // ¡Respuesta correcta! Este equipo gana el control
+      const winningTeamName = teamId === 1 ? team1.name : team2.name;
+      setCurrentTeamId(teamId);
+      setRoundWinnerTeamId(teamId);
+      
+      // Revelar la respuesta del Face-Off
+      setRevealedAnswers([correctAnswer.text.toLowerCase()]);
+      setPointsAccumulatedThisRound(correctAnswer.points);
+      
+      setRoundMessage(`¡${winningTeamName} respondió correctamente en el Face-Off! Tienen el control de la ronda.`);
+      setMessageTypeForCss('info');
+      
+      // Limpiar ambas respuestas de Face-Off
+      setTeam1FaceOffAnswer('');
+      setTeam2FaceOffAnswer('');
+      setUserAnswer('');
+      
+      setTimeout(() => {
+        setRoundMessage(null);
+        setMessageTypeForCss(null);
+        setGamePhase(GamePhase.QUESTION);
+        setIsTimerActive(true);
+        setTimerKey(prev => prev + 1);
+      }, ROUND_MESSAGE_DURATION);
+    } else {
+      // Respuesta incorrecta, el otro equipo obtiene el control automáticamente
+      const failingTeamName = teamId === 1 ? team1.name : team2.name;
+      const winningTeamId = teamId === 1 ? 2 : 1;
+      const winningTeamName = winningTeamId === 1 ? team1.name : team2.name;
+      
+      setCurrentTeamId(winningTeamId);
+      setRoundWinnerTeamId(winningTeamId);
+      
+      setRoundMessage(`${failingTeamName} falló. ¡${winningTeamName} obtiene el control de la ronda!`);
+      setMessageTypeForCss('info');
+      
+      // Limpiar ambas respuestas de Face-Off
+      setTeam1FaceOffAnswer('');
+      setTeam2FaceOffAnswer('');
+      setUserAnswer('');
+      
+      setTimeout(() => {
+        setRoundMessage(null);
+        setMessageTypeForCss(null);
+        setGamePhase(GamePhase.QUESTION);
+        setIsTimerActive(true);
+        setTimerKey(prev => prev + 1);
+      }, ROUND_MESSAGE_DURATION);
+    }
+  };
+
+  const handleTimeUp = () => {
+    if (gamePhase !== GamePhase.QUESTION && gamePhase !== GamePhase.STEAL_ATTEMPT) return;
+    
+    setIsTimerActive(false);
+    const currentProcessingTeam = currentTeamId === 1 ? team1 : team2;
+    const currentTeamSetState = currentTeamId === 1 ? setTeam1 : setTeam2;
+    
+    if (gamePhase === GamePhase.QUESTION) {
+      // Cuando se acaba el tiempo, se asignan directamente 3 strikes (termina su turno)
+      currentTeamSetState(prev => {
+        const otherTeamId = currentTeamId === 1 ? 2 : 1;
+        const otherTeam = currentTeamId === 1 ? team2 : team1;
+        
+        // Cambiar equipo y fase primero
+        setCurrentTeamId(otherTeamId);
+        setGamePhase(GamePhase.STEAL_ATTEMPT);
+        
+        // Mostrar mensaje Y activar timer inmediatamente
+        setRoundMessage(`¡Se acabó el tiempo! ${MAX_STRIKES} strikes para ${currentProcessingTeam.name}. Oportunidad de ROBO para ${otherTeam.name} por ${pointsAccumulatedThisRound} puntos.`);
+        setMessageTypeForCss('steal-opportunity');
+        
+        // Activar timer INMEDIATAMENTE para el robo
+        setIsTimerActive(true);
+        setTimerKey(prev => prev + 1);
+        
+        // Solo ocultar el mensaje después, pero el timer ya está corriendo
+        setTimeout(() => {
+          setRoundMessage(null);
+          setMessageTypeForCss(null);
+        }, ROUND_MESSAGE_DURATION);
+        
+        return { ...prev, strikes: MAX_STRIKES }; // Asignar directamente 3 strikes
+      });
+    } else if (gamePhase === GamePhase.STEAL_ATTEMPT) {
+      // Si se acaba el tiempo en el robo, el equipo original gana los puntos
+      const stealingTeamId = currentTeamId;
+      const originalTeamId = stealingTeamId === 1 ? 2 : 1;
+      const originalTeamSetState = originalTeamId === 1 ? setTeam1 : setTeam2;
+      const originalTeam = originalTeamId === 1 ? team1 : team2;
+      const stealingTeam = stealingTeamId === 1 ? team1 : team2;
+
+      originalTeamSetState(prev => ({ ...prev, score: prev.score + pointsAccumulatedThisRound }));
+      setRoundMessage(`¡Se acabó el tiempo! ${stealingTeam.name} no pudo robar. ${originalTeam.name} se lleva ${pointsAccumulatedThisRound} puntos.`);
+      setMessageTypeForCss('steal-outcome');
+      setRoundWinnerTeamId(originalTeamId);
+      setGamePhase(GamePhase.REVEAL);
+      
+      setTimeout(() => {
+        setRoundMessage(null);
+        setMessageTypeForCss(null);
+        revealAllAnswersAndProceed();
+      }, ROUND_MESSAGE_DURATION + 500);
+    }
+  };
+
   const handleAnswerSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentQuestion || !userAnswer.trim() || gamePhase !== GamePhase.QUESTION || currentTeamId === null) return;
 
-    const submittedAnswerText = userAnswer.trim().toLowerCase();
+    // Desactivar timer al enviar respuesta
+    setIsTimerActive(false);
+
+    const submittedAnswerText = userAnswer.trim();
+    // Usar validación flexible con similitud de texto
     const correctAnswer = currentQuestion.answers.find(
-      ans => ans.text.toLowerCase() === submittedAnswerText && !revealedAnswers.includes(ans.text.toLowerCase())
+      ans => !revealedAnswers.includes(ans.text.toLowerCase()) && 
+             isAnswerValid(submittedAnswerText, ans.text, 0.75) // 75% de similitud
     );
 
     const currentProcessingTeam = currentTeamId === 1 ? team1 : team2;
@@ -168,15 +291,37 @@ export default function GamePage() {
           setMessageTypeForCss(null);
           revealAllAnswersAndProceed();
         }, ROUND_MESSAGE_DURATION);
+      } else {
+        // Reactivar timer si no se completó el tablero
+        setIsTimerActive(true);
+        setTimerKey(prev => prev + 1);
       }
     } else { 
       currentTeamSetState(prev => {
         const newStrikes = prev.strikes + 1;
         if (newStrikes >= MAX_STRIKES) {
+          // Cambiar equipo y fase primero
+          setCurrentTeamId(currentTeamId === 1 ? 2 : 1);
+          setGamePhase(GamePhase.STEAL_ATTEMPT);
+          
+          // Mostrar mensaje Y activar timer inmediatamente
           setRoundMessage(`¡${otherTeam.name}, ${MAX_STRIKES} strikes para ${currentProcessingTeam.name}! Oportunidad de ROBO por ${pointsAccumulatedThisRound} puntos.`);
           setMessageTypeForCss('steal-opportunity');
-          setCurrentTeamId(currentTeamId === 1 ? 2 : 1); 
-          setGamePhase(GamePhase.STEAL_ATTEMPT);
+          
+          // Activar timer INMEDIATAMENTE para el robo
+          setIsTimerActive(true);
+          setTimerKey(prev => prev + 1);
+          
+          // Solo ocultar el mensaje después, pero el timer ya está corriendo
+          setTimeout(() => {
+            setRoundMessage(null);
+            setMessageTypeForCss(null);
+          }, ROUND_MESSAGE_DURATION);
+        } else {
+          // Aún no hay 3 strikes, el mismo equipo continúa
+          // Reactivar timer inmediatamente para el mismo equipo
+          setIsTimerActive(true);
+          setTimerKey(prev => prev + 1);
         }
         return { ...prev, strikes: newStrikes };
       });
@@ -188,6 +333,9 @@ export default function GamePage() {
     e.preventDefault();
     if (!currentQuestion || !userAnswer.trim() || gamePhase !== GamePhase.STEAL_ATTEMPT || currentTeamId === null) return;
 
+    // Desactivar timer al enviar respuesta de robo
+    setIsTimerActive(false);
+
     const stealingTeamId = currentTeamId;
     const originalTeamId = stealingTeamId === 1 ? 2 : 1; 
 
@@ -197,9 +345,11 @@ export default function GamePage() {
     const stealingTeam = stealingTeamId === 1 ? team1 : team2;
     const originalTeam = originalTeamId === 1 ? team1 : team2;
 
-    const submittedAnswerText = userAnswer.trim().toLowerCase();
+    const submittedAnswerText = userAnswer.trim();
+    // Usar validación flexible con similitud de texto
     const correctAnswerFoundForSteal = currentQuestion.answers.find(
-      ans => ans.text.toLowerCase() === submittedAnswerText && !revealedAnswers.includes(ans.text.toLowerCase())
+      ans => !revealedAnswers.includes(ans.text.toLowerCase()) && 
+             isAnswerValid(submittedAnswerText, ans.text, 0.75) // 75% de similitud
     );
 
     let message = "";
@@ -256,9 +406,8 @@ export default function GamePage() {
     }
   };
 
-  if (gamePhase === GamePhase.INITIAL_LOADING || gamePhase === GamePhase.CHOOSING_STARTING_TEAM || gamePhase === GamePhase.ROUND_LOADING) {
+  if (gamePhase === GamePhase.INITIAL_LOADING || gamePhase === GamePhase.ROUND_LOADING) {
     let loadingMessageText = "Cargando datos del juego...";
-    if (gamePhase === GamePhase.CHOOSING_STARTING_TEAM && !roundMessage) loadingMessageText = "Decidiendo quién empieza...";
     if (gamePhase === GamePhase.ROUND_LOADING && !roundMessage && currentQuestionIndex < questionsForCurrentSession.length) loadingMessageText = `Preparando Ronda ${currentQuestionIndex + 1}...`;
     
     return (
@@ -338,7 +487,7 @@ export default function GamePage() {
     );
   }
 
-  if (!currentQuestion || currentTeamId === null || !team1.name || !team2.name) {
+  if (!currentQuestion || !team1.name || !team2.name) {
      return ( 
       <div className="min-h-screen flex flex-col items-center justify-center p-4 text-slate-200 bg-slate-900">
         <div className="text-center">
@@ -364,7 +513,90 @@ export default function GamePage() {
     );
   }
 
-  const activeTeam = currentTeamId === 1 ? team1 : team2;
+  // Renderizado especial para FACE-OFF
+  if (gamePhase === GamePhase.FACE_OFF && currentQuestion) {
+    return (
+      <div className="min-h-screen p-4 md:p-8 flex flex-col text-slate-100">
+        {roundMessage && messageTypeForCss && (
+          <div className={messageTypeForCss === 'face-off' ? "round-info-message bg-purple-600" : "round-info-message"}>
+            {roundMessage}
+          </div>
+        )}
+        
+        <header className="mb-6 text-center">
+          <h1 className="text-3xl md:text-4xl font-bold text-purple-400 mb-4 animate-pulse">
+            ⚡ FACE-OFF ⚡
+          </h1>
+          <p className="text-xl text-gray-300">
+            ¡El primer equipo en responder correctamente gana el control!
+          </p>
+          <button
+            onClick={handleExitGame}
+            className="mt-4 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-2 px-4 rounded-lg"
+          >
+            Salir
+          </button>
+        </header>
+
+        <main className="container mx-auto flex-grow flex flex-col items-center">
+          <div className="w-full max-w-4xl mb-8">
+            <QuestionDisplay 
+              question={currentQuestion} 
+              revealedAnswers={revealedAnswers}
+              isCorrectlyAnswered={(answerText) => revealedAnswers.includes(answerText.toLowerCase())}
+            />
+          </div>
+
+          <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
+            {/* Formulario Equipo 1 */}
+            <div className="bg-cyan-900 bg-opacity-30 p-6 rounded-xl border-2 border-cyan-500">
+              <h3 className="text-2xl font-bold text-cyan-400 mb-4 text-center">{team1.name}</h3>
+              <form onSubmit={(e) => handleFaceOffSubmit(e, 1)} className="space-y-4">
+                <input
+                  type="text"
+                  value={team1FaceOffAnswer}
+                  onChange={(e) => setTeam1FaceOffAnswer(e.target.value)}
+                  className="w-full px-4 py-3 rounded bg-slate-700 border border-cyan-500 focus:border-cyan-300 focus:outline-none text-white"
+                  placeholder="Escribe tu respuesta..."
+                  autoFocus
+                />
+                <button
+                  type="submit"
+                  className="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3 px-6 rounded-lg transition-colors"
+                  disabled={!team1FaceOffAnswer.trim()}
+                >
+                  Responder
+                </button>
+              </form>
+            </div>
+
+            {/* Formulario Equipo 2 */}
+            <div className="bg-orange-900 bg-opacity-30 p-6 rounded-xl border-2 border-orange-500">
+              <h3 className="text-2xl font-bold text-orange-400 mb-4 text-center">{team2.name}</h3>
+              <form onSubmit={(e) => handleFaceOffSubmit(e, 2)} className="space-y-4">
+                <input
+                  type="text"
+                  value={team2FaceOffAnswer}
+                  onChange={(e) => setTeam2FaceOffAnswer(e.target.value)}
+                  className="w-full px-4 py-3 rounded bg-slate-700 border border-orange-500 focus:border-orange-300 focus:outline-none text-white"
+                  placeholder="Escribe tu respuesta..."
+                />
+                <button
+                  type="submit"
+                  className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 px-6 rounded-lg transition-colors"
+                  disabled={!team2FaceOffAnswer.trim()}
+                >
+                  Responder
+                </button>
+              </form>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  const activeTeam = currentTeamId ? (currentTeamId === 1 ? team1 : team2) : null;
   const activeTeamColor = currentTeamId === 1 ? 'text-cyan-400' : 'text-orange-400'; 
   // Removed unused variables:
   // const team1Color = 'cyan'; 
@@ -387,7 +619,7 @@ export default function GamePage() {
           <h1 className="text-xl md:text-2xl font-bold text-slate-200">
             Pregunta {currentQuestionIndex + 1} de {questionsForCurrentSession.length} - Turno de: 
             <span className={`${activeTeamColor} font-semibold`}>
-              {' '}{activeTeam.name}
+              {' '}{activeTeam?.name || 'Determinando...'}
             </span>
             {(gamePhase === GamePhase.QUESTION || gamePhase === GamePhase.STEAL_ATTEMPT) && 
              <span className="text-amber-300"> ({pointsAccumulatedThisRound} pts en juego{gamePhase === GamePhase.STEAL_ATTEMPT ? " - ¡ROBO!" : ""})</span>}
@@ -399,6 +631,19 @@ export default function GamePage() {
             Salir
           </button>
         </div>
+        
+        {/* Temporizador */}
+        {(gamePhase === GamePhase.QUESTION || gamePhase === GamePhase.STEAL_ATTEMPT) && (
+          <div className="container mx-auto px-4 mt-4">
+            <Timer 
+              key={timerKey}
+              duration={gamePhase === GamePhase.STEAL_ATTEMPT ? stealTimeSeconds : turnTimeSeconds}
+              isActive={isTimerActive}
+              onTimeUp={handleTimeUp}
+              isStealAttempt={gamePhase === GamePhase.STEAL_ATTEMPT}
+            />
+          </div>
+        )}
       </header>
 
       <main className="container mx-auto flex-grow flex flex-col items-center w-full">
@@ -439,7 +684,7 @@ export default function GamePage() {
                 value={userAnswer}
                 onChange={(e) => setUserAnswer(e.target.value)}
                 className="flex-grow px-4 py-3 rounded bg-slate-700 border border-slate-600 focus:border-cyan-500 focus:outline-none text-white placeholder-slate-400"
-                placeholder={gamePhase === GamePhase.STEAL_ATTEMPT ? `¡${activeTeam.name}, tu respuesta para robar!` : "Escribe tu respuesta aquí..."}
+                placeholder={gamePhase === GamePhase.STEAL_ATTEMPT ? `¡${activeTeam?.name || 'Equipo'}, tu respuesta para robar!` : "Escribe tu respuesta aquí..."}
                 disabled={gamePhase === GamePhase.REVEAL || gamePhase === GamePhase.GAME_OVER}
                 autoFocus
               />
