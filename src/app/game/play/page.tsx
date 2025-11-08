@@ -55,6 +55,7 @@ export default function GamePage() {
   const [turnTimeSeconds, setTurnTimeSeconds] = useState(30);
   const [stealTimeSeconds, setStealTimeSeconds] = useState(15);
   const [isTimerActive, setIsTimerActive] = useState(false);
+  const [isTimerPaused, setIsTimerPaused] = useState(false);
   const [timerKey, setTimerKey] = useState(0); // Para forzar reset del timer
 
   useEffect(() => {
@@ -360,17 +361,18 @@ export default function GamePage() {
     );
 
     let message = "";
-    let pointsToAward = pointsAccumulatedThisRound; 
 
     if (correctAnswerFoundForSteal) {
-      pointsToAward += correctAnswerFoundForSteal.points; 
+      // ROBO EXITOSO: El equipo que roba gana TODOS los puntos acumulados + la respuesta correcta
+      const pointsToAward = pointsAccumulatedThisRound + correctAnswerFoundForSteal.points;
       stealingTeamSetState(prev => ({ ...prev, score: prev.score + pointsToAward }));
       setRevealedAnswers(prev => [...prev, correctAnswerFoundForSteal.text.toLowerCase()]);
       message = `¡${stealingTeam.name} ROBÓ ${pointsToAward} PUNTOS!`;
       setRoundWinnerTeamId(stealingTeamId); 
     } else {
-      originalTeamSetState(prev => ({ ...prev, score: prev.score + pointsToAward }));
-      message = `¡${stealingTeam.name} falló el robo! ${originalTeam.name} se lleva los ${pointsToAward} puntos acumulados.`;
+      // ROBO FALLIDO: El equipo original se queda con los puntos acumulados
+      originalTeamSetState(prev => ({ ...prev, score: prev.score + pointsAccumulatedThisRound }));
+      message = `¡${stealingTeam.name} falló el robo! ${originalTeam.name} se lleva los ${pointsAccumulatedThisRound} puntos acumulados.`;
       setRoundWinnerTeamId(originalTeamId); 
     }
     
@@ -646,6 +648,7 @@ export default function GamePage() {
               key={timerKey}
               duration={gamePhase === GamePhase.STEAL_ATTEMPT ? stealTimeSeconds : turnTimeSeconds}
               isActive={isTimerActive}
+              isPaused={isTimerPaused}
               onTimeUp={handleTimeUp}
               isStealAttempt={gamePhase === GamePhase.STEAL_ATTEMPT}
             />
@@ -690,6 +693,8 @@ export default function GamePage() {
                 type="text"
                 value={userAnswer}
                 onChange={(e) => setUserAnswer(e.target.value)}
+                onFocus={() => setIsTimerPaused(true)}
+                onBlur={() => setIsTimerPaused(false)}
                 className="flex-grow px-4 py-3 rounded bg-slate-700 border border-slate-600 focus:border-cyan-500 focus:outline-none text-white placeholder-slate-400"
                 placeholder={gamePhase === GamePhase.STEAL_ATTEMPT ? `¡${activeTeam?.name || 'Equipo'}, tu respuesta para robar!` : "Escribe tu respuesta aquí..."}
                 disabled={gamePhase === GamePhase.REVEAL || gamePhase === GamePhase.GAME_OVER}
